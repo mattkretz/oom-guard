@@ -102,7 +102,7 @@ public:
 int
 main()
 {
-  std::printf("oom-guard 0.1\n"
+  std::printf("oom-guard 0.2\n"
               "Copyright © 2023 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH\n"
               "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n"
               "This is free software: you are free to change and redistribute it.\n"
@@ -118,6 +118,10 @@ main()
   for (;;)
     {
       s_outer_memory.release();
+
+      using namespace std::chrono_literals;
+      auto sleep_time = 1000ms;
+
       std::ifstream meminfo("/proc/meminfo");
       meminfo.seekg(4 * 16 + 8);
       alignas(16) char buf[16] = {};
@@ -127,6 +131,7 @@ main()
       const auto digits = std::bit_cast<simd<short, 5>>(
                             stdx::simd_cast<simd<short, 8>>(characters - '0'));
       const int avail = reduce(digits * dec_digits<short, 5>);
+
       const fs::path proc("/proc");
       if (avail < 750)
         {
@@ -149,7 +154,20 @@ main()
               if (not oom_value)
                 continue;
               const int value = oom_value.value();
-              if (value > max)
+              if (value > 200) // kill unconditionally
+                {
+                  const std::string& filename = dir.path().filename().string();
+                  if (filename.size() > 8)
+                    continue;
+                  const auto pid_value = string_to_ushort(filename.c_str(), filename.size());
+                  if (not pid_value)
+                    continue;
+                  kill(pid_value.value(), SIGTERM);
+                  char cmdline[256];
+                  std::ifstream(dir.path() / "cmdline") >> cmdline;
+                  std::printf("Terminating PID %d (score %d): %s\n", pid, max, cmdline);
+                }
+              else if (value > max)
                 {
                   const std::string& filename = dir.path().filename().string();
                   if (filename.size() > 8)
@@ -167,21 +185,22 @@ main()
             }
           if (max > 0)
             {
-              std::string cmdline;
-              cmdline.reserve(512);
-              std::ifstream(cmdline_path) >> cmdline;
               kill(pid, SIGTERM);
-              std::printf("Terminating PID %d (score %d): %s\n", pid, max, cmdline.c_str());
+              char cmdline[256];
+              std::ifstream(cmdline_path) >> cmdline;
+              std::printf("Terminating PID %d (score %d): %s\n", pid, max, cmdline);
               //kill(pid, SIGKILL);
             }
           else
             std::printf("Found nothing to kill\n");
           system("/usr/bin/akonadictl stop");
+
+          // reduce sleep time, a process might be in the process of allocating the remaining memory
+          sleep_time = 5ms;
         }
       //else
         //std::printf("All good: %d MiB available\n", avail);
 
-      using namespace std::chrono_literals;
-      std::this_thread::sleep_for(1s);
+      std::this_thread::sleep_for(sleep_time);
     }
 }
