@@ -165,7 +165,7 @@ main()
                   kill(pid_value.value(), SIGTERM);
                   char cmdline[256];
                   std::ifstream(dir.path() / "cmdline") >> cmdline;
-                  std::printf("Terminating PID %d (score %d): %s\n", pid, max, cmdline);
+                  std::printf("Terminating PID %d (score %d): %s\n", pid, value, cmdline);
                 }
               else if (value > max)
                 {
