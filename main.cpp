@@ -102,8 +102,8 @@ public:
 int
 main()
 {
-  std::printf("oom-guard 0.2\n"
-              "Copyright © 2023 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH\n"
+  std::printf("oom-guard 0.3\n"
+              "Copyright © 2023-2024 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH\n"
               "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n"
               "This is free software: you are free to change and redistribute it.\n"
               "There is NO WARRANTY, to the extent permitted by law.\n\n"
@@ -135,6 +135,7 @@ main()
       const fs::path proc("/proc");
       if (avail < 750)
         {
+          system("/usr/bin/killall cc1plus");
           int max = 0;
           pid_t pid = -1;
           char cmdline_path[128];
